@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import type { ChatStatus, UIMessage } from "ai";
-import { CheckIcon, CopyIcon, XIcon } from "lucide-react";
+import { CheckIcon, CopyIcon, XIcon, SettingsIcon } from "lucide-react";
 import {
   Conversation,
   ConversationContent,
@@ -75,7 +75,7 @@ const SUGGESTIONS = [
 
 function MCPIndicator({ toolName, state }: { toolName: string; state: string }) {
   const isDone = state === "output-available";
-  const isError = state === "error";
+  const isError = state === "output-error";
   const isRunning = !isDone && !isError;
 
   return (
@@ -120,6 +120,11 @@ function MCPIndicator({ toolName, state }: { toolName: string; state: string }) 
         <span className="font-mono text-[12px] tracking-wide text-foreground/75">
           {toolName.replaceAll("_", " ")}
         </span>
+        {isError && (
+          <span className="text-[10px] text-red-400/80">
+            Couldn't get data
+          </span>
+        )}
       </div>
 
       <div className="ml-1 shrink-0">
@@ -147,13 +152,13 @@ export function ChatInterface({
   initialMessages,
   onSave,
 }: ChatInterfaceProps) {
-  const { settings } = useChatContext();
+  const { settings, setIsSettingsOpen } = useChatContext();
   const onSaveRef = useRef(onSave);
   useEffect(() => {
     onSaveRef.current = onSave;
   }, [onSave]);
 
-  const { messages, sendMessage, status, stop } = useChat({
+  const { messages, sendMessage, status, stop, error } = useChat({
     id: conversationId,
     messages: initialMessages,
     onError: (error) => {
@@ -183,6 +188,9 @@ export function ChatInterface({
             data: {
               apiKey: settings.apiKey,
               projectId: settings.projectId,
+              aiProvider: settings.aiProvider,
+              aiApiKey: settings.aiApiKey,
+              aiModel: settings.aiModel,
             },
           },
         });
@@ -196,15 +204,19 @@ export function ChatInterface({
         throw error;
       }
     },
-    [sendMessage, settings.apiKey, settings.projectId]
+    [sendMessage, settings.apiKey, settings.projectId, settings.aiProvider, settings.aiApiKey, settings.aiModel]
   );
 
   const handleSubmit = useCallback(
     (msg: PromptInputMessage) => {
       if (!msg.text.trim()) return;
+      if (!settings.aiApiKey || !settings.apiKey) {
+        setIsSettingsOpen(true);
+        return;
+      }
       handleSendMessage({ text: msg.text });
     },
-    [handleSendMessage]
+    [handleSendMessage, settings.aiApiKey, settings.apiKey, setIsSettingsOpen]
   );
 
   const isGenerating = status === "submitted" || status === "streaming";
@@ -260,6 +272,20 @@ export function ChatInterface({
     <div className="flex h-full flex-col">
       <Conversation className="flex-1 w-full">
         <ConversationContent className="max-w-5xl mx-auto w-full px-9">
+          {!settings.apiKey && (
+            <div className="mb-6 rounded-xl border border-yellow-500/25 bg-yellow-500/5 p-4 text-sm text-yellow-500 shadow-sm backdrop-blur-xs flex items-start gap-3">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-yellow-500/10">
+                <SettingsIcon className="size-4 animate-pulse text-yellow-500" />
+              </span>
+              <div className="flex-1 space-y-1">
+                <p className="font-semibold text-foreground text-sm">PostHog MCP is disconnected</p>
+                <p className="text-muted-foreground text-xs leading-relaxed">
+                  To query your product analytics, HogQL queries, experiments, and behavior data, please enter your <span className="font-semibold text-foreground">PostHog MCP API Key</span> in Chat Settings.
+                </p>
+              </div>
+            </div>
+          )}
+
           {messages.map((msg, msgIndex) => {
             const isLast = msgIndex === messages.length - 1;
             const isAssistant = msg.role === "assistant";
@@ -315,6 +341,7 @@ export function ChatInterface({
                             key={key}
                             toolName={toolName}
                             state={tp.state ?? "input-available"}
+
                           />
                         );
                       }
@@ -389,6 +416,20 @@ export function ChatInterface({
               </Message>
             );
           })()}
+
+          {error && (
+            <div className="mt-4 rounded-xl border border-red-500/25 bg-red-500/5 p-4 text-sm text-red-400 shadow-xs flex items-start gap-3">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-red-500/10">
+                <XIcon className="size-4 text-red-500" />
+              </span>
+              <div className="flex-1 space-y-1">
+                <p className="font-semibold text-foreground text-sm">An error occurred</p>
+                <p className="text-muted-foreground text-xs leading-relaxed">
+                  {error.message || "Failed to generate a response. Please check your API keys or connection settings."}
+                </p>
+              </div>
+            </div>
+          )}
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>

@@ -99,29 +99,51 @@ function ThemeToggle() {
 // ── SettingsDialog ───────────────────────────────────────────────────────────
 
 function SettingsDialog() {
-  const { settings, updateSettings } = useChatContext();
+  const { settings, updateSettings, isSettingsOpen, setIsSettingsOpen } = useChatContext();
   const [apiKey, setApiKey] = useState(settings.apiKey);
   const [projectId, setProjectId] = useState(settings.projectId);
   const [aiProvider, setAiProvider] = useState<"openai" | "anthropic" | "google" | "openrouter">(settings.aiProvider);
   const [aiApiKey, setAiApiKey] = useState(settings.aiApiKey);
-  const [open, setOpen] = useState(false);
+  const [aiModel, setAiModel] = useState(settings.aiModel);
+  const [isManualModel, setIsManualModel] = useState(false);
   const [showAiApiKey, setShowAiApiKey] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
+
+  const PREDEFINED_MODELS = {
+    openai: ["gpt-5.5-instant", "gpt-5.5-pro", "gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "o1", "o3-mini"],
+    anthropic: ["claude-4.7-opus-latest", "claude-4.6-sonnet-latest", "claude-4.5-haiku-latest", "claude-3-7-sonnet-latest"],
+    google: ["gemini-3.1-pro", "gemini-3-flash", "gemini-3.1-flash-lite", "gemini-2.5-pro"],
+    openrouter: ["openrouter/owl-alpha", "anthropic/claude-4.7-opus", "google/gemini-3.1-pro", "openai/gpt-5.5-instant", "anthropic/claude-4.6-sonnet"],
+  };
 
   useEffect(() => {
     setApiKey(settings.apiKey);
     setProjectId(settings.projectId);
     setAiProvider(settings.aiProvider || "openai");
     setAiApiKey(settings.aiApiKey);
-    if (!open) {
+
+    const providerKey = (settings.aiProvider || "openai") as keyof typeof PREDEFINED_MODELS;
+    
+    if (!settings.aiModel) {
+      setAiModel(PREDEFINED_MODELS[providerKey][0]);
+      setIsManualModel(false);
+    } else if (!PREDEFINED_MODELS[providerKey].includes(settings.aiModel)) {
+      setAiModel(settings.aiModel);
+      setIsManualModel(true);
+    } else {
+      setAiModel(settings.aiModel);
+      setIsManualModel(false);
+    }
+
+    if (!isSettingsOpen) {
       setShowAiApiKey(false);
       setShowApiKey(false);
     }
-  }, [settings, open]);
+  }, [settings, isSettingsOpen]);
 
   const handleSave = () => {
-    updateSettings({ apiKey, projectId, aiProvider, aiApiKey });
-    setOpen(false);
+    updateSettings({ apiKey, projectId, aiProvider, aiApiKey, aiModel });
+    setIsSettingsOpen(false);
   };
 
   const providers = [
@@ -132,8 +154,8 @@ function SettingsDialog() {
   ] as const;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="ghost" size="icon" title="Settings" />}>
+    <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+      <DialogTrigger render={<Button variant="ghost" size="icon" title="Settings" onClick={() => setIsSettingsOpen(true)} />}>
         <SettingsIcon className="size-4" />
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
@@ -146,7 +168,15 @@ function SettingsDialog() {
             <h3 className="text-sm font-medium border-b pb-2">AI Provider</h3>
             <div className="space-y-2">
               <Label htmlFor="aiProvider">Provider</Label>
-              <Select value={aiProvider} onValueChange={(v: any) => setAiProvider(v)}>
+              <Select 
+                value={aiProvider} 
+                onValueChange={(v: any) => {
+                  setAiProvider(v);
+                  setIsManualModel(false);
+                  const providerKey = v as keyof typeof PREDEFINED_MODELS;
+                  setAiModel(PREDEFINED_MODELS[providerKey][0]);
+                }}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -162,6 +192,47 @@ function SettingsDialog() {
                 </SelectContent>
               </Select>
             </div>
+            
+            {aiProvider && (
+              <div className="space-y-2">
+                <Label htmlFor="aiModel">Model</Label>
+                <Select
+                  value={isManualModel ? "manual" : aiModel}
+                  onValueChange={(v) => {
+                    if (v === "manual") {
+                      setIsManualModel(true);
+                      setAiModel("");
+                    } else {
+                      setIsManualModel(false);
+                      setAiModel(v || "");
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {PREDEFINED_MODELS[aiProvider as keyof typeof PREDEFINED_MODELS].map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {m}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="manual">Enter Manually...</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                {isManualModel && (
+                  <Input
+                    id="aiModelManual"
+                    placeholder={`e.g. ${PREDEFINED_MODELS[aiProvider as keyof typeof PREDEFINED_MODELS][0]}`}
+                    value={aiModel}
+                    onChange={(e) => setAiModel(e.target.value)}
+                    className="mt-2"
+                  />
+                )}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="aiApiKey">API Key</Label>
               <InputGroup>
@@ -185,6 +256,29 @@ function SettingsDialog() {
                   </InputGroupButton>
                 </InputGroupAddon>
               </InputGroup>
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1 flex-wrap">
+                <span>Need a key? Get it here:</span>
+                {aiProvider === "openai" && (
+                  <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-semibold">
+                    OpenAI API Keys
+                  </a>
+                )}
+                {aiProvider === "anthropic" && (
+                  <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-semibold">
+                    Anthropic Keys
+                  </a>
+                )}
+                {aiProvider === "google" && (
+                  <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-semibold">
+                    Google AI Studio Keys
+                  </a>
+                )}
+                {aiProvider === "openrouter" && (
+                  <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-semibold">
+                    OpenRouter Keys
+                  </a>
+                )}
+              </p>
             </div>
           </div>
 
@@ -214,8 +308,8 @@ function SettingsDialog() {
                   </InputGroupButton>
                 </InputGroupAddon>
               </InputGroup>
-              <p className="text-[10px] text-muted-foreground">
-                Generate this in your PostHog Project Settings under MCP.
+              <p className="text-[10px] text-muted-foreground leading-normal">
+                To find this, <span className="font-semibold">go to Settings</span>, look for <span className="font-semibold">Personal API Keys</span>, and click <span className="font-semibold">Create personal API key</span>.
               </p>
             </div>
             <div className="space-y-2">

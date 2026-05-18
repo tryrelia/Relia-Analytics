@@ -24,6 +24,7 @@ export function ChatLayoutWrapper({ children }: ChatLayoutWrapperProps) {
     projectId: "",
     aiProvider: "openai",
     aiApiKey: "",
+    aiModel: "",
   });
 
   const router = useRouter();
@@ -47,6 +48,7 @@ export function ChatLayoutWrapper({ children }: ChatLayoutWrapperProps) {
           projectId: parsed.projectId || "",
           aiProvider: parsed.aiProvider || "openai",
           aiApiKey: parsed.aiApiKey || "",
+          aiModel: parsed.aiModel || "",
         });
       } catch (e) {
         console.error("Failed to parse settings", e);
@@ -60,6 +62,7 @@ export function ChatLayoutWrapper({ children }: ChatLayoutWrapperProps) {
       projectId: string;
       aiProvider: "openai" | "anthropic" | "google" | "openrouter";
       aiApiKey: string;
+      aiModel: string;
     }) => {
       setSettings(newSettings);
       localStorage.setItem("posthog-ai-settings", JSON.stringify(newSettings));
@@ -106,8 +109,10 @@ export function ChatLayoutWrapper({ children }: ChatLayoutWrapperProps) {
   // Actually, since we want to avoid complex context if possible, let's just use it in the page components.
   // But wait, the Sidebar is shared.
 
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
   return (
-    <ChatContext.Provider value={{ conversations, handleSave, handleDelete, settings, updateSettings }}>
+    <ChatContext.Provider value={{ conversations, handleSave, handleDelete, settings, updateSettings, isSettingsOpen, setIsSettingsOpen }}>
       <div className="flex h-screen overflow-hidden bg-background text-foreground">
         <Sidebar conversations={conversations} onDelete={handleDelete} />
         <main className="flex min-w-0 flex-1 flex-col">

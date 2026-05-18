@@ -9,6 +9,7 @@ export interface ChatSettings {
   projectId: string;
   aiProvider: "openai" | "anthropic" | "google" | "openrouter";
   aiApiKey: string;
+  aiModel: string;
 }
 
 interface ChatContextType {
@@ -17,6 +18,8 @@ interface ChatContextType {
   handleDelete: (id: string) => Promise<void>;
   settings: ChatSettings;
   updateSettings: (settings: ChatSettings) => void;
+  isSettingsOpen: boolean;
+  setIsSettingsOpen: (open: boolean) => void;
 }
 
 export const ChatContext = createContext<ChatContextType | null>(null);
