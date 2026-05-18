@@ -101,7 +101,15 @@ export const MessageAction = ({
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger>{button}</TooltipTrigger>
+          {/* render merges tooltip trigger handlers into Button — avoids <button> inside <button> */}
+          <TooltipTrigger
+            render={
+              <Button size={size} type="button" variant={variant} {...props} />
+            }
+          >
+            {children}
+            <span className="sr-only">{label || tooltip}</span>
+          </TooltipTrigger>
           <TooltipContent>
             <p>{tooltip}</p>
           </TooltipContent>

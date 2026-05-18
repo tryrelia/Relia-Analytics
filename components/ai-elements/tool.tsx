@@ -13,7 +13,6 @@ import {
   ChevronDownIcon,
   CircleIcon,
   ClockIcon,
-  WrenchIcon,
   XCircleIcon,
 } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
@@ -91,7 +90,7 @@ export const ToolHeader = ({
       {...props}
     >
       <div className="flex items-center gap-2">
-        <WrenchIcon className="size-4 text-muted-foreground" />
+        <img src="/svg/mcp.webp" alt="MCP" className="size-4" />
         <span className="font-medium text-sm">{title ?? derivedName}</span>
         {getStatusBadge(state)}
       </div>

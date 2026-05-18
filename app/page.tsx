@@ -13,6 +13,7 @@ import {
   PlusIcon,
   SunIcon,
   Trash2Icon,
+  XIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,6 +49,7 @@ import {
   upsertConversation,
   type StoredConversation,
 } from "@/lib/db";
+import { cn } from "@/lib/utils";
 
 function getTitle(messages: UIMessage[]): string {
   const first = messages.find((m) => m.role === "user");
@@ -105,11 +107,79 @@ function CopyButton({ text }: { text: string }) {
 // ── Suggestion chips ───────────────────────────────────────────────────────────
 
 const SUGGESTIONS = [
-  "Explain quantum entanglement simply",
-  "Write a haiku about debugging",
-  "Best way to learn Rust?",
-  "Summarize the history of the internet",
+  "How many unique users visited yesterday?",
+  "What is our week-over-week retention?",
+  "Show me the most common paths to conversion",
+  "Write a HogQL query to find power users",
 ] as const;
+
+
+function MCPIndicator({ toolName, state }: { toolName: string; state: string }) {
+  const isDone = state === "output-available";
+  const isError = state === "error";
+  const isRunning = !isDone && !isError;
+
+  return (
+    <div
+      className={cn(
+        "relative flex w-fit items-center gap-3 overflow-hidden rounded-lg border p-2 pr-3.5 transition-all duration-500",
+        isRunning && "border-orange-500/30 bg-gradient-to-r from-orange-950/60 to-orange-950/10 shadow-[0_0_16px_0_rgba(249,115,22,0.06)]",
+        isDone && "border-emerald-500/20 bg-gradient-to-r from-emerald-950/40 to-emerald-950/10",
+        isError && "border-red-500/20 bg-gradient-to-r from-red-950/40 to-red-950/10",
+      )}
+    >
+      {/* Pulse overlay */}
+      {isRunning && (
+        <div className="pointer-events-none absolute inset-0 animate-pulse bg-gradient-to-r from-orange-500/5 to-transparent" />
+      )}
+
+      {/* Icon cell */}
+      <div
+        className={cn(
+          "relative flex size-9 shrink-0 items-center justify-center rounded-md",
+          isRunning && "bg-orange-500/10",
+          isDone && "bg-emerald-500/10",
+          isError && "bg-red-500/10",
+        )}
+      >
+        {isRunning && (
+          <span className="absolute inset-0 animate-ping rounded-md border border-orange-400/50 [animation-duration:1.5s]" />
+        )}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/svg/mcp.webp" alt="MCP" className="size-6 object-contain" />
+      </div>
+
+      {/* Labels */}
+      <div className="flex flex-col gap-0.5">
+        <span
+          className={cn(
+            "font-mono text-[10px] tracking-[0.18em] uppercase",
+            isRunning && "text-orange-400/60",
+            isDone && "text-emerald-400/60",
+            isError && "text-red-400/60",
+          )}
+        >
+          via mcp
+        </span>
+        <span className="font-mono text-[12px] tracking-wide text-foreground/75">
+          {toolName.replaceAll("_", " ")}
+        </span>
+      </div>
+
+      {/* Status dot */}
+      <div className="ml-1 shrink-0">
+        {isRunning && (
+          <span className="relative flex size-2">
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-orange-400 opacity-65" />
+            <span className="relative inline-flex size-2 rounded-full bg-orange-500" />
+          </span>
+        )}
+        {isDone && <CheckIcon className="size-3.5 text-emerald-400" />}
+        {isError && <XIcon className="size-3.5 text-red-400" />}
+      </div>
+    </div>
+  );
+}
 
 // ── ChatInterface ──────────────────────────────────────────────────────────────
 
@@ -131,6 +201,12 @@ function ChatInterface({
 
   const { messages, sendMessage, status, stop } = useChat({
     messages: initialMessages,
+    onError: (error) => {
+      if (error.name === "AbortError" || error.message?.includes("aborted")) {
+        return;
+      }
+      console.error(error);
+    },
   });
 
   const prevStatusRef = useRef<ChatStatus>("ready");
@@ -144,24 +220,43 @@ function ChatInterface({
     prevStatusRef.current = status;
   }, [status, messages, conversationId]);
 
-  const handleSubmit = useCallback(
-    (msg: PromptInputMessage) => {
-      if (!msg.text.trim() && !msg.files?.length) return;
-      sendMessage({ text: msg.text, files: msg.files });
+  const handleSendMessage = useCallback(
+    async (msg: { text: string; files?: any[] }) => {
+      try {
+        await sendMessage(msg);
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          (error.name === "AbortError" || error.message?.includes("aborted"))
+        ) {
+          return;
+        }
+        throw error;
+      }
     },
     [sendMessage]
+  );
+
+  const handleSubmit = useCallback(
+    (msg: PromptInputMessage) => {
+      if (!msg.text.trim()) return;
+      handleSendMessage({ text: msg.text });
+    },
+    [handleSendMessage]
   );
 
   const isGenerating = status === "submitted" || status === "streaming";
 
   const promptInput = (
     <div className="border-t bg-background p-4">
-      <PromptInput onSubmit={handleSubmit} className="mx-auto max-w-5xl px-9">
+      <PromptInput
+        onSubmit={handleSubmit}
+        className="mx-auto max-w-5xl px-9"
+      >
         <PromptInputBody>
           <PromptInputTextarea placeholder="Message…" />
         </PromptInputBody>
-        <PromptInputFooter>
-          <div />
+        <PromptInputFooter className="justify-end">
           <PromptInputSubmit status={status} onStop={stop} />
         </PromptInputFooter>
       </PromptInput>
@@ -186,7 +281,7 @@ function ChatInterface({
               <button
                 key={s}
                 type="button"
-                onClick={() => sendMessage({ text: s })}
+                onClick={() => handleSendMessage({ text: s })}
                 className="rounded-lg border bg-muted/40 px-4 py-3 text-left text-sm transition-colors hover:bg-accent"
               >
                 {s}
@@ -201,8 +296,8 @@ function ChatInterface({
 
   return (
     <div className="flex h-full flex-col">
-      <Conversation className="flex-1 w-full max-w-5xl mx-auto">
-        <ConversationContent>
+      <Conversation className="flex-1 w-full">
+        <ConversationContent className="max-w-5xl mx-auto w-full px-9">
           {messages.map((msg, msgIndex) => {
             const isLast = msgIndex === messages.length - 1;
             const isAssistant = msg.role === "assistant";
@@ -242,6 +337,30 @@ function ChatInterface({
                       );
                     }
 
+                    // DynamicToolUIPart (from dynamicTool()) — type is "dynamic-tool"
+                    // ToolUIPart (from tool()) — type is "tool-${toolName}"
+                    {
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      const tp = part as any;
+                      const pt = part.type as string;
+                      const isDynamic = pt === "dynamic-tool";
+                      const isStatic = pt.startsWith("tool-");
+
+                      if (isDynamic || isStatic) {
+                        const toolName: string = isDynamic
+                          ? (tp.toolName as string)
+                          : pt.slice(5).replaceAll("_", "-");
+
+                        return (
+                          <MCPIndicator
+                            key={key}
+                            toolName={toolName}
+                            state={tp.state ?? "input-available"}
+                          />
+                        );
+                      }
+                    }
+
                     return null;
                   })}
                 </MessageContent>
@@ -257,14 +376,37 @@ function ChatInterface({
             );
           })}
 
-          {/* Thinking indicator while waiting for first token */}
-          {status === "submitted" && (
-            <Message from="assistant">
-              <MessageContent>
-                <Shimmer duration={1.5}>Thinking…</Shimmer>
-              </MessageContent>
-            </Message>
-          )}
+          {/* Thinking: only before any tool or text appears */}
+          {(() => {
+            if (!isGenerating) return null;
+            const last = messages[messages.length - 1];
+            if (!last || last.role !== "assistant") {
+              // No assistant message yet — show shimmer
+              return (
+                <Message from="assistant">
+                  <MessageContent>
+                    <Shimmer duration={1.5}>Thinking…</Shimmer>
+                  </MessageContent>
+                </Message>
+              );
+            }
+            const hasText = last.parts.some(
+              (p) => p.type === "text" && (p as any).text?.length > 0
+            );
+            const hasMCPParts = last.parts.some((p) => {
+              const pt = p.type as string;
+              return pt === "dynamic-tool" || pt.startsWith("tool-");
+            });
+            // Suppress once any tool part exists — MCP indicator handles status
+            if (hasText || hasMCPParts) return null;
+            return (
+              <Message from="assistant">
+                <MessageContent>
+                  <Shimmer duration={1.5}>Thinking…</Shimmer>
+                </MessageContent>
+              </Message>
+            );
+          })()}
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>

@@ -1102,6 +1102,22 @@ export const PromptInputFooter = ({
   />
 );
 
+export type PromptInputRightProps = Omit<
+  ComponentProps<typeof InputGroupAddon>,
+  "align"
+>;
+
+export const PromptInputRight = ({
+  className,
+  ...props
+}: PromptInputRightProps) => (
+  <InputGroupAddon
+    align="inline-end"
+    className={cn("items-end pb-1.5 pr-1", className)}
+    {...props}
+  />
+);
+
 export type PromptInputToolsProps = HTMLAttributes<HTMLDivElement>;
 
 export const PromptInputTools = ({
