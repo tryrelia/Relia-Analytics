@@ -13,16 +13,19 @@ export interface PostHogMCPSession {
   close: () => Promise<void>;
 }
 
-export async function createPostHogMCPSession(): Promise<PostHogMCPSession | null> {
-  const apiKey = process.env.POSTHOG_MCP_API_KEY;
+export async function createPostHogMCPSession(credentials: {
+  apiKey?: string;
+  projectId?: string;
+}): Promise<PostHogMCPSession | null> {
+  const { apiKey, projectId } = credentials;
   if (!apiKey) return null;
 
   const client = new Client({ name: "posthog-ai-chat", version: "1.0.0" });
 
   const url = new URL(POSTHOG_MCP_URL);
   url.searchParams.set("features", FEATURES);
-  if (process.env.POSTHOG_PROJECT_ID) {
-    url.searchParams.set("project_id", process.env.POSTHOG_PROJECT_ID);
+  if (projectId) {
+    url.searchParams.set("project_id", projectId);
   }
 
   const transport = new StreamableHTTPClientTransport(url, {

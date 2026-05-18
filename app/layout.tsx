@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Providers } from "@/components/providers";
+import { ChatLayoutWrapper } from "@/components/chat-layout-wrapper";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,7 +14,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className="h-full antialiased">
       <body className="h-full">
-        <Providers>{children}</Providers>
+        <Providers>
+          <ChatLayoutWrapper>{children}</ChatLayoutWrapper>
+        </Providers>
       </body>
     </html>
   );

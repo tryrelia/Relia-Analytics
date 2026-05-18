@@ -18,9 +18,18 @@ When a user asks about their data, proactively use the available tools to fetch 
 For complex analytics questions, use SQL tools with HogQL queries.`;
 
 export async function POST(req: Request) {
-  const { messages }: { messages: UIMessage[] } = await req.json();
+  const { 
+    messages, 
+    data 
+  }: { 
+    messages: UIMessage[], 
+    data?: { apiKey?: string; projectId?: string } 
+  } = await req.json();
 
-  const session = await createPostHogMCPSession().catch(() => null);
+  const session = await createPostHogMCPSession({
+    apiKey: data?.apiKey,
+    projectId: data?.projectId
+  }).catch(() => null);
   const hasTools = session && Object.keys(session.tools).length > 0;
 
   const result = streamText({
