@@ -33,6 +33,7 @@ import {
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { cn } from "@/lib/utils";
 import { useChatContext } from "@/lib/chat-context";
+import { parseContentWithCharts, InteractiveChart } from "@/components/chat-chart";
 
 function getTitle(messages: UIMessage[]): string {
   const first = messages.find((m) => m.role === "user");
@@ -81,10 +82,10 @@ function MCPIndicator({ toolName, state }: { toolName: string; state: string }) 
   return (
     <div
       className={cn(
-        "relative flex w-fit items-center gap-3 overflow-hidden rounded-lg border p-2 pr-3.5 transition-all duration-500",
-        isRunning && "border-orange-500/30 bg-linear-to-r from-orange-950/60 to-orange-950/10 shadow-[0_0_16px_0_rgba(249,115,22,0.06)]",
-        isDone && "border-emerald-500/20 bg-linear-to-r from-emerald-950/40 to-emerald-950/10",
-        isError && "border-red-500/20 bg-linear-to-r from-red-950/40 to-red-950/10",
+        "relative flex w-fit items-center gap-3 overflow-hidden rounded-xl border p-2.5 pr-4 transition-all duration-500 shadow-xs",
+        isRunning && "border-orange-200 bg-orange-50/50 text-orange-900 shadow-[0_4px_20px_-4px_rgba(249,115,22,0.1)] dark:border-orange-500/25 dark:bg-orange-950/20 dark:text-orange-300",
+        isDone && "border-emerald-200 bg-emerald-50/50 text-emerald-900 dark:border-emerald-500/15 dark:bg-emerald-950/15 dark:text-emerald-300",
+        isError && "border-red-200 bg-red-50/50 text-red-900 dark:border-red-500/15 dark:bg-red-950/15 dark:text-red-300",
       )}
     >
       {isRunning && (
@@ -93,49 +94,49 @@ function MCPIndicator({ toolName, state }: { toolName: string; state: string }) 
 
       <div
         className={cn(
-          "relative flex size-9 shrink-0 items-center justify-center rounded-md",
-          isRunning && "bg-orange-500/10",
-          isDone && "bg-emerald-500/10",
-          isError && "bg-red-500/10",
+          "relative flex size-9 shrink-0 items-center justify-center rounded-lg border transition-all duration-300",
+          isRunning && "bg-orange-500/10 border-orange-200/50 dark:bg-orange-500/15 dark:border-orange-500/20",
+          isDone && "bg-emerald-500/10 border-emerald-200/50 dark:bg-emerald-500/15 dark:border-emerald-500/20",
+          isError && "bg-red-500/10 border-red-200/50 dark:bg-red-500/15 dark:border-red-500/20",
         )}
       >
         {isRunning && (
-          <span className="absolute inset-0 animate-ping rounded-md border border-orange-400/50 animation-duration-[1.5s]" />
+          <span className="absolute inset-0 animate-ping rounded-lg border border-orange-400/30 dark:border-orange-400/50 animation-duration-[1.5s]" />
         )}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/svg/mcp.webp" alt="MCP" className="size-6 object-contain" />
+        <img src="/svg/mcp.webp" alt="MCP" className="size-5.5 object-contain invert dark:invert-0" />
       </div>
 
       <div className="flex flex-col gap-0.5">
         <span
           className={cn(
-            "font-mono text-[10px] tracking-[0.18em] uppercase",
-            isRunning && "text-orange-400/60",
-            isDone && "text-emerald-400/60",
-            isError && "text-red-400/60",
+            "font-mono text-[9px] font-bold tracking-[0.2em] uppercase",
+            isRunning && "text-orange-600 dark:text-orange-400/90",
+            isDone && "text-emerald-600 dark:text-emerald-400/90",
+            isError && "text-red-600 dark:text-red-400/90",
           )}
         >
           via mcp
         </span>
-        <span className="font-mono text-[12px] tracking-wide text-foreground/75">
+        <span className="font-mono text-[12px] font-semibold tracking-wide text-foreground/90 leading-tight">
           {toolName.replaceAll("_", " ")}
         </span>
         {isError && (
-          <span className="text-[10px] text-red-400/80">
+          <span className="text-[10px] font-medium text-red-600 dark:text-red-400/80">
             Couldn't get data
           </span>
         )}
       </div>
 
-      <div className="ml-1 shrink-0">
+      <div className="ml-1.5 shrink-0 flex items-center">
         {isRunning && (
           <span className="relative flex size-2">
             <span className="absolute inline-flex size-full animate-ping rounded-full bg-orange-400 opacity-65" />
             <span className="relative inline-flex size-2 rounded-full bg-orange-500" />
           </span>
         )}
-        {isDone && <CheckIcon className="size-3.5 text-emerald-400" />}
-        {isError && <XIcon className="size-3.5 text-red-400" />}
+        {isDone && <CheckIcon className="size-4 text-emerald-600 dark:text-emerald-400" />}
+        {isError && <XIcon className="size-4 text-red-600 dark:text-red-400" />}
       </div>
     </div>
   );
@@ -315,13 +316,29 @@ export function ChatInterface({
 
                     if (part.type === "text") {
                       const tp = part as { type: "text"; text: string };
+                      const blocks = parseContentWithCharts(tp.text);
                       return (
-                        <MessageResponse
-                          key={key}
-                          isAnimating={isLast && status === "streaming"}
-                        >
-                          {tp.text}
-                        </MessageResponse>
+                        <div key={key} className="flex flex-col gap-2 w-full">
+                          {blocks.map((block, idx) => {
+                            if (block.type === "chart") {
+                              return (
+                                <InteractiveChart
+                                  key={`chart-${idx}`}
+                                  jsonString={block.content}
+                                  isStreaming={isLast && status === "streaming"}
+                                />
+                              );
+                            }
+                            return (
+                              <MessageResponse
+                                key={`text-${idx}`}
+                                isAnimating={isLast && status === "streaming" && idx === blocks.length - 1}
+                              >
+                                {block.content}
+                              </MessageResponse>
+                            );
+                          })}
+                        </div>
                       );
                     }
 
