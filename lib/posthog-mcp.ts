@@ -83,7 +83,7 @@ export async function createPostHogMCPSession(credentials: {
   return {
     tools,
     close: async () => {
-      await client.close().catch(() => {});
+      await client.close().catch(() => { });
     },
   };
 }

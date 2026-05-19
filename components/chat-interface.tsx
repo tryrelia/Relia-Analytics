@@ -31,10 +31,17 @@ import {
   ReasoningContent,
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
-import { Shimmer } from "@/components/ai-elements/shimmer";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  Task,
+  TaskContent,
+  TaskItem,
+  TaskTrigger,
+} from "@/components/ai-elements/task";
 import { cn } from "@/lib/utils";
 import { useChatContext } from "@/lib/chat-context";
 import { parseContentWithCharts, InteractiveChart } from "@/components/chat-chart";
+import { Shimmer } from "@/components/ai-elements/shimmer";
 
 function getTitle(messages: UIMessage[]): string {
   const first = messages.find((m) => m.role === "user");
@@ -75,71 +82,32 @@ const SUGGESTIONS = [
 ] as const;
 
 
-function MCPIndicator({ toolName, state }: { toolName: string; state: string }) {
+function TaskIndicator({ toolName, state }: { toolName: string; state: string }) {
   const isDone = state === "output-available";
   const isError = state === "output-error";
   const isRunning = !isDone && !isError;
 
   return (
-    <div
-      className={cn(
-        "relative flex w-fit items-center gap-3 overflow-hidden rounded-xl border p-2.5 pr-4 transition-all duration-500 shadow-xs",
-        isRunning && "border-orange-200 bg-orange-50/50 text-orange-900 shadow-[0_4px_20px_-4px_rgba(249,115,22,0.1)] dark:border-orange-500/25 dark:bg-orange-950/20 dark:text-orange-300",
-        isDone && "border-emerald-200 bg-emerald-50/50 text-emerald-900 dark:border-emerald-500/15 dark:bg-emerald-950/15 dark:text-emerald-300",
-        isError && "border-red-200 bg-red-50/50 text-red-900 dark:border-red-500/15 dark:bg-red-950/15 dark:text-red-300",
-      )}
-    >
-      {isRunning && (
-        <div className="pointer-events-none absolute inset-0 animate-pulse bg-linear-to-r from-orange-500/5 to-transparent" />
-      )}
-
-      <div
-        className={cn(
-          "relative flex size-9 shrink-0 items-center justify-center rounded-lg border transition-all duration-300",
-          isRunning && "bg-orange-500/10 border-orange-200/50 dark:bg-orange-500/15 dark:border-orange-500/20",
-          isDone && "bg-emerald-500/10 border-emerald-200/50 dark:bg-emerald-500/15 dark:border-emerald-500/20",
-          isError && "bg-red-500/10 border-red-200/50 dark:bg-red-500/15 dark:border-red-500/20",
-        )}
-      >
-        {isRunning && (
-          <span className="absolute inset-0 animate-ping rounded-lg border border-orange-400/30 dark:border-orange-400/50 animation-duration-[1.5s]" />
-        )}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/svg/mcp.webp" alt="MCP" className="size-5.5 object-contain invert dark:invert-0" />
-      </div>
-
-      <div className="flex flex-col gap-0.5">
-        <span
-          className={cn(
-            "font-mono text-[9px] font-bold tracking-[0.2em] uppercase",
-            isRunning && "text-orange-600 dark:text-orange-400/90",
-            isDone && "text-emerald-600 dark:text-emerald-400/90",
-            isError && "text-red-600 dark:text-red-400/90",
+    <Task className="my-2" defaultOpen={isRunning}>
+      <TaskTrigger title={toolName.replaceAll("_", " ")} />
+      <TaskContent>
+        <TaskItem>
+          {isRunning ? (
+            <div className="flex items-center gap-2">
+              <Spinner className="size-3" />
+              <span>Executing tool...</span>
+            </div>
+          ) : isError ? (
+            <span className="text-red-500 font-medium">Data not found.</span>
+          ) : (
+            <span className="text-emerald-500 font-medium flex items-center gap-1.5">
+              <CheckIcon className="size-3.5" />
+              Tool execution completed.
+            </span>
           )}
-        >
-          via mcp
-        </span>
-        <span className="font-mono text-[12px] font-semibold tracking-wide text-foreground/90 leading-tight">
-          {toolName.replaceAll("_", " ")}
-        </span>
-        {isError && (
-          <span className="text-[10px] font-medium text-red-600 dark:text-red-400/80">
-            Couldn't get data
-          </span>
-        )}
-      </div>
-
-      <div className="ml-1.5 shrink-0 flex items-center">
-        {isRunning && (
-          <span className="relative flex size-2">
-            <span className="absolute inline-flex size-full animate-ping rounded-full bg-orange-400 opacity-65" />
-            <span className="relative inline-flex size-2 rounded-full bg-orange-500" />
-          </span>
-        )}
-        {isDone && <CheckIcon className="size-4 text-emerald-600 dark:text-emerald-400" />}
-        {isError && <XIcon className="size-4 text-red-600 dark:text-red-400" />}
-      </div>
-    </div>
+        </TaskItem>
+      </TaskContent>
+    </Task>
   );
 }
 
@@ -190,14 +158,12 @@ export function ChatInterface({
       }
       try {
         await sendMessage(msg, {
-          body: {
-            data: {
-              apiKey: settings.apiKey,
-              projectId: settings.projectId,
-              aiProvider: settings.aiProvider,
-              aiApiKey: settings.aiApiKey,
-              aiModel: settings.aiModel,
-            },
+          headers: {
+            "x-ph-api-key": settings.apiKey || "",
+            "x-ph-project-id": settings.projectId || "",
+            "x-ai-provider": settings.aiProvider || "",
+            "x-ai-api-key": settings.aiApiKey || "",
+            "x-ai-model": settings.aiModel || "",
           },
         });
       } catch (error) {
@@ -210,56 +176,22 @@ export function ChatInterface({
         throw error;
       }
     },
-    [sendMessage, settings.apiKey, settings.projectId, settings.aiProvider, settings.aiApiKey, settings.aiModel, setIsSettingsOpen]
+    [sendMessage, settings, setIsSettingsOpen]
   );
+
+  const isGenerating = status === "submitted" || status === "streaming";
 
   const handleSubmit = useCallback(
     (msg: PromptInputMessage) => {
-      if (!msg.text.trim()) return;
+      if (!msg.text.trim() || isGenerating) return;
       handleSendMessage({ text: msg.text });
     },
-    [handleSendMessage]
+    [handleSendMessage, isGenerating]
   );
 
   const handleStop = useCallback(() => {
     stop();
-
-    setMessages((prevMessages) => {
-      if (prevMessages.length === 0) return prevMessages;
-      
-      const lastMsg = prevMessages[prevMessages.length - 1];
-      if (lastMsg && lastMsg.role === "assistant") {
-        // Clean the partial output and show request cancelled
-        const updatedMsg = {
-          ...lastMsg,
-          parts: [
-            {
-              type: "text" as const,
-              text: "❌ Request cancelled.",
-            },
-          ],
-        };
-        return [...prevMessages.slice(0, -1), updatedMsg];
-      } else {
-        // If the last message was user (assistant hasn't responded yet)
-        return [
-          ...prevMessages,
-          {
-            id: nanoid(),
-            role: "assistant" as const,
-            parts: [
-              {
-                type: "text" as const,
-                text: "❌ Request cancelled.",
-              },
-            ],
-          },
-        ];
-      }
-    });
-  }, [stop, setMessages]);
-
-  const isGenerating = status === "submitted" || status === "streaming";
+  }, [stop]);
 
   const promptInput = (
     <div className="border-t bg-background p-4">
@@ -340,34 +272,37 @@ export function ChatInterface({
             </div>
           )}
 
-          {messages
-            .filter((msg) => msg.role === "user" || msg.role === "assistant")
-            .map((msg, msgIndex, filteredArray) => {
-              const isLast = msgIndex === filteredArray.length - 1;
-              const isAssistant = msg.role === "assistant";
-              const messageText = msg.parts
-                .filter((p) => p.type === "text")
-                .map((p) => (p as { type: "text"; text: string }).text)
-                .join("");
+          {messages.map((msg, msgIndex) => {
+            const isLast = msgIndex === messages.length - 1;
+            const isAssistant = msg.role === "assistant";
+            const messageText = msg.parts
+              .filter((p) => p.type === "text")
+              .map((p) => (p as { type: "text"; text: string }).text)
+              .join("");
+
+            // Consolidate all reasoning parts into one block (ai-elements pattern)
+            const reasoningText = msg.parts
+              .filter((p) => p.type === "reasoning")
+              .map((p) => (p as { type: "reasoning"; text: string }).text)
+              .join("\n\n");
+            const hasReasoning = reasoningText.length > 0;
+            const lastMsgPart = msg.parts.at(-1);
+            const isReasoningStreaming =
+              isLast && isGenerating && lastMsgPart?.type === "reasoning";
 
             return (
               <Message from={msg.role} key={msg.id}>
                 <MessageContent>
+                  {(hasReasoning || isReasoningStreaming) && (
+                    <Reasoning isStreaming={isReasoningStreaming}>
+                      <ReasoningTrigger />
+                      {hasReasoning && <ReasoningContent>{reasoningText}</ReasoningContent>}
+                    </Reasoning>
+                  )}
                   {msg.parts.map((part, i) => {
                     const key = `${msg.id}-${i}`;
 
-                    if (part.type === "reasoning") {
-                      const rp = part as { type: "reasoning"; text: string };
-                      return (
-                        <Reasoning
-                          key={key}
-                          isStreaming={isLast && status === "streaming"}
-                        >
-                          <ReasoningTrigger />
-                          <ReasoningContent>{rp.text}</ReasoningContent>
-                        </Reasoning>
-                      );
-                    }
+                    if (part.type === "reasoning") return null;
 
                     if (part.type === "text") {
                       const tp = part as { type: "text"; text: string };
@@ -409,11 +344,10 @@ export function ChatInterface({
                           : pt.slice(5).replaceAll("_", "-");
 
                         return (
-                          <MCPIndicator
+                          <TaskIndicator
                             key={key}
                             toolName={toolName}
                             state={tp.state ?? "input-available"}
-
                           />
                         );
                       }
@@ -454,8 +388,11 @@ export function ChatInterface({
               | { type: string; text?: string; state?: string }
               | undefined;
 
-            // Tail text is actively streaming → no shimmer
+            // Tail text actively streaming or reasoning streaming → Reasoning trigger handles its own shimmer
             if (lastPart?.type === "text" && (lastPart.text?.length ?? 0) > 0) {
+              return null;
+            }
+            if (lastPart?.type === "reasoning") {
               return null;
             }
 

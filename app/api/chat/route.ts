@@ -39,21 +39,15 @@ When a user asks about their data, proactively use the available tools to fetch 
 export async function POST(req: Request) {
   const {
     messages,
-    data
   }: {
     messages: UIMessage[],
-    data?: {
-      apiKey?: string;
-      projectId?: string;
-      aiProvider?: "openai" | "anthropic" | "google" | "openrouter";
-      aiApiKey?: string;
-      aiModel?: string;
-    }
   } = await req.json();
 
-  const providerType = data?.aiProvider || "openrouter";
-  const userApiKey = data?.aiApiKey || "";
-  const userModel = data?.aiModel;
+  const providerType = (req.headers.get("x-ai-provider") || "openrouter") as any;
+  const userApiKey = req.headers.get("x-ai-api-key") || "";
+  const userModel = req.headers.get("x-ai-model") || undefined;
+  const phApiKey = req.headers.get("x-ph-api-key") || undefined;
+  const phProjectId = req.headers.get("x-ph-project-id") || undefined;
 
   let modelInstance;
 
@@ -75,14 +69,14 @@ export async function POST(req: Request) {
   }
 
   const session = await createPostHogMCPSession({
-    apiKey: data?.apiKey,
-    projectId: data?.projectId,
+    apiKey: phApiKey,
+    projectId: phProjectId,
   }).catch(() => null);
 
   const hasTools = session != null && Object.keys(session.tools).length > 0;
 
   req.signal.addEventListener("abort", () => {
-    session?.close().catch(() => {});
+    session?.close().catch(() => { });
   });
 
   const result = streamText({
@@ -90,7 +84,7 @@ export async function POST(req: Request) {
     messages: await convertToModelMessages(messages),
     system: hasTools ? POSTHOG_SYSTEM_PROMPT : undefined,
     tools: hasTools ? session!.tools : undefined,
-    stopWhen: hasTools ? stepCountIs(5) : stepCountIs(1),
+    stopWhen: stepCountIs(hasTools ? 10 : 1),
     abortSignal: req.signal,
     onFinish: async () => {
       await session?.close();
