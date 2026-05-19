@@ -183,6 +183,10 @@ export function ChatInterface({
 
   const handleSendMessage = useCallback(
     async (msg: { text: string; files?: any[] }) => {
+      if (!settings.aiApiKey || !settings.apiKey) {
+        setIsSettingsOpen(true);
+        return;
+      }
       try {
         await sendMessage(msg, {
           body: {
@@ -205,19 +209,15 @@ export function ChatInterface({
         throw error;
       }
     },
-    [sendMessage, settings.apiKey, settings.projectId, settings.aiProvider, settings.aiApiKey, settings.aiModel]
+    [sendMessage, settings.apiKey, settings.projectId, settings.aiProvider, settings.aiApiKey, settings.aiModel, setIsSettingsOpen]
   );
 
   const handleSubmit = useCallback(
     (msg: PromptInputMessage) => {
       if (!msg.text.trim()) return;
-      if (!settings.aiApiKey || !settings.apiKey) {
-        setIsSettingsOpen(true);
-        return;
-      }
       handleSendMessage({ text: msg.text });
     },
-    [handleSendMessage, settings.aiApiKey, settings.apiKey, setIsSettingsOpen]
+    [handleSendMessage]
   );
 
   const isGenerating = status === "submitted" || status === "streaming";
@@ -282,6 +282,20 @@ export function ChatInterface({
                 <p className="font-semibold text-foreground text-sm">PostHog MCP is disconnected</p>
                 <p className="text-muted-foreground text-xs leading-relaxed">
                   To query your product analytics, HogQL queries, experiments, and behavior data, please enter your <span className="font-semibold text-foreground">PostHog MCP API Key</span> in Chat Settings.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {!settings.aiApiKey && (
+            <div className="mb-6 rounded-xl border border-blue-500/25 bg-blue-500/5 p-4 text-sm text-blue-500 shadow-sm backdrop-blur-xs flex items-start gap-3">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-blue-500/10">
+                <SettingsIcon className="size-4 animate-pulse text-blue-500" />
+              </span>
+              <div className="flex-1 space-y-1">
+                <p className="font-semibold text-foreground text-sm">AI Provider is disconnected</p>
+                <p className="text-muted-foreground text-xs leading-relaxed">
+                  To generate responses, please enter your <span className="font-semibold text-foreground">{settings.aiProvider.toUpperCase()} API Key</span> in Chat Settings.
                 </p>
               </div>
             </div>
