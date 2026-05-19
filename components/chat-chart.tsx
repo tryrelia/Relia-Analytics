@@ -369,34 +369,48 @@ export function InteractiveChart({ jsonString, isStreaming }: InteractiveChartPr
   );
 }
 
+function isChartJson(jsonStr: string): boolean {
+  try {
+    const parsed = JSON.parse(jsonStr.trim());
+    return (
+      parsed &&
+      typeof parsed === "object" &&
+      typeof parsed.type === "string" &&
+      ["bar", "line", "area", "pie"].includes(parsed.type) &&
+      Array.isArray(parsed.data) &&
+      parsed.data.length > 0
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function parseContentWithCharts(text: string) {
-  // Matches: ```recharts\n([\s\S]*?)(?:```|$)
-  const regex = /```recharts\n([\s\S]*?)(?:```|$)/g;
+  // Match ```recharts or ```json code blocks that contain chart-shaped JSON
+  const regex = /```(recharts|json)\n([\s\S]*?)(?:```|$)/g;
   const parts: { type: "text" | "chart"; content: string }[] = [];
-  
+
   let lastIndex = 0;
   let match;
-  
+
   while ((match = regex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push({
-        type: "text",
-        content: text.slice(lastIndex, match.index)
-      });
+    const lang = match[1];
+    const content = match[2];
+
+    const isChart = lang === "recharts" || (lang === "json" && isChartJson(content));
+
+    if (isChart) {
+      if (match.index > lastIndex) {
+        parts.push({ type: "text", content: text.slice(lastIndex, match.index) });
+      }
+      parts.push({ type: "chart", content });
+      lastIndex = regex.lastIndex;
     }
-    parts.push({
-      type: "chart",
-      content: match[1]
-    });
-    lastIndex = regex.lastIndex;
   }
-  
+
   if (lastIndex < text.length) {
-    parts.push({
-      type: "text",
-      content: text.slice(lastIndex)
-    });
+    parts.push({ type: "text", content: text.slice(lastIndex) });
   }
-  
+
   return parts.length > 0 ? parts : [{ type: "text" as const, content: text }];
 }

@@ -11,11 +11,11 @@ const POSTHOG_SYSTEM_PROMPT = `You are a world-class Product Analytics & Growth 
 Your goal is to answer questions about product analytics, feature flags, experiments, user behavior, and error tracking using data-driven insights.
 
 CRITICAL RULES FOR RESPONSES:
-1. EXTREMELY BRIEF TEXT: Keep plain text explanations to a absolute minimum (MAXIMUM 3 sentences total per response). Let the chart and tables speak for themselves. Do not repeat what is already obvious in the visuals.
-2. NO UNNECESSARY SECTIONS: Do NOT include long sections for "Key Observations", "Recommendations", "Primary Entry Points", etc., unless the user explicitly asks for them. Just show the chart/table and a single concise 2-sentence summary.
-3. PREFER TABLES: Always present tabular, metric, or comparative data in clean Markdown tables (e.g., event counts, retention rates, top pages).
+1. EXTREMELY BRIEF TEXT: Keep plain text explanations to an absolute minimum (MAXIMUM 3 sentences total per response). Let the chart and tables speak for themselves.
+2. NO UNNECESSARY SECTIONS: Do NOT include long sections for "Key Observations", "Recommendations", etc., unless the user explicitly asks.
+3. PREFER TABLES: Always present tabular, metric, or comparative data in clean Markdown tables.
 4. PREFER INTERACTIVE CHARTS: For trend data, breakdowns, or conversions, output a \`\`\`recharts code block containing a single valid JSON object following this EXACT schema:
-\`\`\`json
+\`\`\`recharts
 {
   "type": "bar" | "line" | "area" | "pie",
   "title": "Clear, descriptive title",
@@ -32,23 +32,23 @@ CRITICAL RULES FOR RESPONSES:
    - Use "line" or "area" for trends over time (e.g., daily active users, event counts over 30 days).
    - Use "pie" for percentage distribution/shares (e.g., device breakdown, browser share).
    - Never place any other text, comments, or nested markdown inside the \`\`\`recharts block. Ensure it is strict, valid JSON.
-5. MERMAID DIAGRAMS: For representing user conversion flows, signup funnels, path analysis, or feature flag logic, use \`\`\`mermaid diagrams (e.g., flowchart TD, pie chart, etc.).
+5. MERMAID DIAGRAMS: For representing user conversion flows, signup funnels, path analysis, or feature flag logic, use \`\`\`mermaid diagrams.
 
-When a user asks about their data, proactively use the available tools to fetch real information rather than guessing or outputting placeholders. For complex queries, craft precise HogQL queries via SQL tools.`;
+When a user asks about their data, proactively use the available tools to fetch real information rather than guessing. For complex queries, craft precise HogQL queries via SQL tools.`;
 
 export async function POST(req: Request) {
-  const { 
-    messages, 
-    data 
-  }: { 
-    messages: UIMessage[], 
-    data?: { 
-      apiKey?: string; 
+  const {
+    messages,
+    data
+  }: {
+    messages: UIMessage[],
+    data?: {
+      apiKey?: string;
       projectId?: string;
       aiProvider?: "openai" | "anthropic" | "google" | "openrouter";
       aiApiKey?: string;
       aiModel?: string;
-    } 
+    }
   } = await req.json();
 
   const providerType = data?.aiProvider || "openrouter";
@@ -58,22 +58,15 @@ export async function POST(req: Request) {
   let modelInstance;
 
   if (providerType === "openai") {
-    const openai = createOpenAI({
-      apiKey: userApiKey,
-    });
+    const openai = createOpenAI({ apiKey: userApiKey });
     modelInstance = openai(userModel || "gpt-4o");
   } else if (providerType === "anthropic") {
-    const anthropic = createAnthropic({
-      apiKey: userApiKey,
-    });
+    const anthropic = createAnthropic({ apiKey: userApiKey });
     modelInstance = anthropic(userModel || "claude-3-5-sonnet-latest");
   } else if (providerType === "google") {
-    const google = createGoogleGenerativeAI({
-      apiKey: userApiKey,
-    });
+    const google = createGoogleGenerativeAI({ apiKey: userApiKey });
     modelInstance = google(userModel || "gemini-2.5-flash");
   } else {
-    // default / openrouter
     const openrouter = createOpenAI({
       baseURL: "https://openrouter.ai/api/v1",
       apiKey: userApiKey,
@@ -83,11 +76,11 @@ export async function POST(req: Request) {
 
   const session = await createPostHogMCPSession({
     apiKey: data?.apiKey,
-    projectId: data?.projectId
+    projectId: data?.projectId,
   }).catch(() => null);
-  const hasTools = session && Object.keys(session.tools).length > 0;
 
-  // Instantly close MCP session and free resources if the request is aborted by the user
+  const hasTools = session != null && Object.keys(session.tools).length > 0;
+
   req.signal.addEventListener("abort", () => {
     session?.close().catch(() => {});
   });
@@ -96,7 +89,7 @@ export async function POST(req: Request) {
     model: modelInstance,
     messages: await convertToModelMessages(messages),
     system: hasTools ? POSTHOG_SYSTEM_PROMPT : undefined,
-    tools: hasTools ? session.tools : undefined,
+    tools: hasTools ? session!.tools : undefined,
     stopWhen: hasTools ? stepCountIs(5) : stepCountIs(1),
     abortSignal: req.signal,
     onFinish: async () => {
