@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import type { ChatStatus, UIMessage } from "ai";
 import { nanoid } from "nanoid";
-import { CheckIcon, CopyIcon, XIcon, SettingsIcon } from "lucide-react";
+import { CheckIcon, CopyIcon, XIcon, SettingsIcon, PlusIcon } from "lucide-react";
 import {
   Conversation,
   ConversationContent,
@@ -122,6 +123,10 @@ export function ChatInterface({
   initialMessages,
   onSave,
 }: ChatInterfaceProps) {
+  const router = useRouter();
+  const createNewChat = useCallback(() => {
+    router.push(`/${nanoid()}`);
+  }, [router]);
   const { settings, setIsSettingsOpen } = useChatContext();
   const onSaveRef = useRef(onSave);
   useEffect(() => {
@@ -469,6 +474,15 @@ export function ChatInterface({
                     error.message || "Failed to generate a response. Please check your API keys or connection settings."
                   )}
                 </p>
+                {error.message?.includes("maximum context length") && (
+                  <button
+                    onClick={createNewChat}
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-red-500/10 border border-red-500/25 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/20 transition-colors"
+                  >
+                    <PlusIcon className="size-3.5" />
+                    New Chat
+                  </button>
+                )}
               </div>
             </div>
           )}
