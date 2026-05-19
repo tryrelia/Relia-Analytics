@@ -145,6 +145,22 @@ npm run lint     # eslint
 
 ---
 
+## Security
+
+A security scan report for this project is available here:
+
+[Relia Security Report](https://tryrelia.com/sample-project/relia_Kg8k0Qi0W0Qn55Y-vNB1HDYaDybGtSf5cwl68Jq450SYUIYUD60RoXBFzOSOS0S2)
+
+### Browser Storage Security Considerations
+
+This project currently stores certain client-side data using browser storage mechanisms such as `IndexedDB` and `localStorage`.
+
+Because browser storage is accessible from client-side JavaScript, sensitive data may be exposed in the event of XSS (Cross-Site Scripting) vulnerabilities or compromised browser environments.
+
+The current implementation is primarily intended for development, experimentation, and demo usage.
+
+---
+
 ## Contributing
 
 PRs welcome. Please:
