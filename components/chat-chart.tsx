@@ -35,14 +35,14 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Adaptive HSL Colors for dark and light modes
+// Beautiful, vibrant colors highly visible in both light and dark themes
 const CHART_COLORS = [
-  "hsl(var(--primary))",
-  "hsl(262 83% 58%)", // Violet
-  "hsl(142 71% 45%)", // Emerald
-  "hsl(24 95% 53%)",  // Orange/Amber
-  "hsl(339 90% 51%)",  // Pink/Rose
-  "hsl(199 89% 48%)",  // Sky Blue
+  "hsl(217, 91%, 60%)",  // Premium Blue
+  "hsl(262, 83%, 58%)",  // Violet
+  "hsl(142, 71%, 45%)",  // Emerald
+  "hsl(24, 95%, 53%)",   // Orange/Amber
+  "hsl(339, 90%, 51%)",  // Pink/Rose
+  "hsl(199, 89%, 48%)",  // Sky Blue
 ];
 
 interface ChartData {
@@ -151,9 +151,8 @@ export function InteractiveChart({ jsonString, isStreaming }: InteractiveChartPr
 
   // Render different chart types
   const renderChart = () => {
-    const isDark = typeof window !== "undefined" && document.documentElement.classList.contains("dark");
-    const gridColor = isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.05)";
-    const axisColor = isDark ? "rgba(255, 255, 255, 0.4)" : "rgba(0, 0, 0, 0.5)";
+    const gridColor = "var(--border)";
+    const axisColor = "var(--muted-foreground)";
 
     const commonProps = {
       data,
@@ -182,11 +181,11 @@ export function InteractiveChart({ jsonString, isStreaming }: InteractiveChartPr
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: "hsl(var(--background))",
-                borderColor: "hsl(var(--border))",
+                backgroundColor: "var(--background)",
+                borderColor: "var(--border)",
                 borderRadius: "8px",
                 fontSize: "12px",
-                color: "hsl(var(--foreground))",
+                color: "var(--foreground)",
                 boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
               }}
             />
@@ -237,11 +236,11 @@ export function InteractiveChart({ jsonString, isStreaming }: InteractiveChartPr
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: "hsl(var(--background))",
-                borderColor: "hsl(var(--border))",
+                backgroundColor: "var(--background)",
+                borderColor: "var(--border)",
                 borderRadius: "8px",
                 fontSize: "12px",
-                color: "hsl(var(--foreground))",
+                color: "var(--foreground)",
                 boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
               }}
             />
@@ -284,11 +283,11 @@ export function InteractiveChart({ jsonString, isStreaming }: InteractiveChartPr
             </Pie>
             <Tooltip
               contentStyle={{
-                backgroundColor: "hsl(var(--background))",
-                borderColor: "hsl(var(--border))",
+                backgroundColor: "var(--background)",
+                borderColor: "var(--border)",
                 borderRadius: "8px",
                 fontSize: "12px",
-                color: "hsl(var(--foreground))",
+                color: "var(--foreground)",
                 boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
               }}
             />
@@ -317,13 +316,13 @@ export function InteractiveChart({ jsonString, isStreaming }: InteractiveChartPr
               dx={-5}
             />
             <Tooltip
-              cursor={{ fill: "rgba(0,0,0,0.02)" }}
+              cursor={{ fill: "var(--muted)", opacity: 0.15 }}
               contentStyle={{
-                backgroundColor: "hsl(var(--background))",
-                borderColor: "hsl(var(--border))",
+                backgroundColor: "var(--background)",
+                borderColor: "var(--border)",
                 borderRadius: "8px",
                 fontSize: "12px",
-                color: "hsl(var(--foreground))",
+                color: "var(--foreground)",
                 boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
               }}
             />

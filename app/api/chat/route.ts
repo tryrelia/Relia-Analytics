@@ -87,12 +87,18 @@ export async function POST(req: Request) {
   }).catch(() => null);
   const hasTools = session && Object.keys(session.tools).length > 0;
 
+  // Instantly close MCP session and free resources if the request is aborted by the user
+  req.signal.addEventListener("abort", () => {
+    session?.close().catch(() => {});
+  });
+
   const result = streamText({
     model: modelInstance,
     messages: await convertToModelMessages(messages),
     system: hasTools ? POSTHOG_SYSTEM_PROMPT : undefined,
     tools: hasTools ? session.tools : undefined,
     stopWhen: hasTools ? stepCountIs(5) : stepCountIs(1),
+    abortSignal: req.signal,
     onFinish: async () => {
       await session?.close();
     },

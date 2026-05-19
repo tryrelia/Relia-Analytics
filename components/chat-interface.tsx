@@ -301,13 +301,15 @@ export function ChatInterface({
             </div>
           )}
 
-          {messages.map((msg, msgIndex) => {
-            const isLast = msgIndex === messages.length - 1;
-            const isAssistant = msg.role === "assistant";
-            const messageText = msg.parts
-              .filter((p) => p.type === "text")
-              .map((p) => (p as { type: "text"; text: string }).text)
-              .join("");
+          {messages
+            .filter((msg) => msg.role === "user" || msg.role === "assistant")
+            .map((msg, msgIndex, filteredArray) => {
+              const isLast = msgIndex === filteredArray.length - 1;
+              const isAssistant = msg.role === "assistant";
+              const messageText = msg.parts
+                .filter((p) => p.type === "text")
+                .map((p) => (p as { type: "text"; text: string }).text)
+                .join("");
 
             return (
               <Message from={msg.role} key={msg.id}>
