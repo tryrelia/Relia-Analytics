@@ -113,7 +113,7 @@ function SettingsDialog() {
     openai: ["gpt-5.5-instant", "gpt-5.5-pro", "gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "o1", "o3-mini"],
     anthropic: ["claude-4.7-opus-latest", "claude-4.6-sonnet-latest", "claude-4.5-haiku-latest", "claude-3-7-sonnet-latest"],
     google: ["gemini-3.1-pro", "gemini-3-flash", "gemini-3.1-flash-lite", "gemini-2.5-pro"],
-    openrouter: ["openrouter/owl-alpha", "anthropic/claude-4.7-opus", "google/gemini-3.1-pro", "openai/gpt-5.5-instant", "anthropic/claude-4.6-sonnet"],
+    openrouter: ["openrouter/owl-alpha", "openai/gpt-oss-120b:free", "anthropic/claude-4.7-opus", "openai/gpt-5.5-instant", "anthropic/claude-4.6-sonnet"],
   };
 
   useEffect(() => {
@@ -123,7 +123,7 @@ function SettingsDialog() {
     setAiApiKey(settings.aiApiKey);
 
     const providerKey = (settings.aiProvider || "openai") as keyof typeof PREDEFINED_MODELS;
-    
+
     if (!settings.aiModel) {
       setAiModel(PREDEFINED_MODELS[providerKey][0]);
       setIsManualModel(false);
@@ -168,8 +168,8 @@ function SettingsDialog() {
             <h3 className="text-sm font-medium border-b pb-2">AI Provider</h3>
             <div className="space-y-2">
               <Label htmlFor="aiProvider">Provider</Label>
-              <Select 
-                value={aiProvider} 
+              <Select
+                value={aiProvider}
                 onValueChange={(v: any) => {
                   setAiProvider(v);
                   setIsManualModel(false);
@@ -192,7 +192,7 @@ function SettingsDialog() {
                 </SelectContent>
               </Select>
             </div>
-            
+
             {aiProvider && (
               <div className="space-y-2">
                 <Label htmlFor="aiModel">Model</Label>
@@ -382,11 +382,10 @@ export function Sidebar({ conversations, onDelete }: SidebarProps) {
               tabIndex={0}
               onClick={() => router.push(`/${conv.id}`)}
               onKeyDown={(e) => e.key === "Enter" && router.push(`/${conv.id}`)}
-              className={`group flex cursor-pointer items-center rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent ${
-                activeId === conv.id
+              className={`group flex cursor-pointer items-center rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent ${activeId === conv.id
                   ? "bg-accent font-medium text-foreground"
                   : "text-muted-foreground"
-              }`}
+                }`}
             >
               <span className="flex-1 truncate">{conv.title}</span>
               <button
