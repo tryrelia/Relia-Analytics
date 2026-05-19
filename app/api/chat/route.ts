@@ -65,7 +65,7 @@ export async function POST(req: Request) {
       baseURL: "https://openrouter.ai/api/v1",
       apiKey: userApiKey,
     });
-    modelInstance = openrouter(userModel || "openrouter/owl-alpha");
+    modelInstance = openrouter(userModel || "poolside/laguna-m.1:free");
   }
 
   const session = await createPostHogMCPSession({

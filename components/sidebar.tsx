@@ -113,7 +113,7 @@ function SettingsDialog() {
     openai: ["gpt-5.5-instant", "gpt-5.5-pro", "gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "o1", "o3-mini"],
     anthropic: ["claude-4.7-opus-latest", "claude-4.6-sonnet-latest", "claude-4.5-haiku-latest", "claude-3-7-sonnet-latest"],
     google: ["gemini-3.1-pro", "gemini-3-flash", "gemini-3.1-flash-lite", "gemini-2.5-pro"],
-    openrouter: ["openrouter/owl-alpha", "openai/gpt-oss-120b:free", "anthropic/claude-4.7-opus", "openai/gpt-5.5-instant", "anthropic/claude-4.6-sonnet"],
+    openrouter: ["poolside/laguna-m.1:free", "openai/gpt-oss-120b:free", "anthropic/claude-4.7-opus", "openai/gpt-5.5-instant", "anthropic/claude-4.6-sonnet"],
   };
 
   useEffect(() => {

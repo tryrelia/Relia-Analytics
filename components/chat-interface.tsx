@@ -135,6 +135,24 @@ export function ChatInterface({
       if (error.name === "AbortError" || error.message?.includes("aborted")) {
         return;
       }
+      
+      if (error.message?.toLowerCase().includes("support tool use") || error.message?.includes("experiment_results_get")) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: nanoid(),
+            role: "assistant",
+            parts: [
+              {
+                type: "text",
+                text: "⚠️ **Model Compatibility Error:** The currently selected AI model does not support tool calling. To query your PostHog data, please open **Settings** and select a model that supports tools (e.g., `openai/gpt-4o`, `anthropic/claude-3.5-sonnet`, or `google/gemini-2.5-flash`).",
+              },
+            ],
+          },
+        ]);
+        return;
+      }
+      
       console.error(error);
     },
   });
