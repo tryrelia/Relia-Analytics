@@ -456,7 +456,22 @@ export function ChatInterface({
               <div className="flex-1 space-y-1">
                 <p className="font-semibold text-foreground text-sm">An error occurred</p>
                 <p className="text-muted-foreground text-xs leading-relaxed">
-                  {error.message || "Failed to generate a response. Please check your API keys or connection settings."}
+                  {error.message?.includes("guardrail restrictions and data policy") ? (
+                    <span>
+                      OpenRouter blocked this request because of your data privacy settings. Go to{" "}
+                      <a
+                        href="https://openrouter.ai/settings/privacy"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary underline font-medium hover:text-primary/80"
+                      >
+                        openrouter.ai/settings/privacy
+                      </a>{" "}
+                      to allow provider logging for free models (like owl-alpha), or switch to a paid model / direct provider.
+                    </span>
+                  ) : (
+                    error.message || "Failed to generate a response. Please check your API keys or connection settings."
+                  )}
                 </p>
               </div>
             </div>
