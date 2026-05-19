@@ -1,36 +1,169 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Relia Analytics
+
+> An open-source AI chat interface for [PostHog](https://posthog.com) analytics — query your product data using natural language, powered by the PostHog MCP server and your choice of LLM provider.
+
+Ask questions like _"How many unique users visited yesterday?"_ or _"Show me the most common paths to conversion"_ and get answers backed by real PostHog data, rendered as interactive charts, tables, mermaid diagrams, and HogQL queries.
+
+---
+
+## Features
+
+- **Multi-provider AI** — OpenAI, Anthropic (Claude), Google (Gemini), and OpenRouter all supported out of the box
+- **PostHog MCP integration** — direct access to insights, events, persons, dashboards, experiments, feature flags, surveys, error tracking, and HogQL via the official [PostHog MCP server](https://mcp.posthog.com/mcp)
+- **Interactive charts** — model outputs are rendered as live `recharts` bar/line/area/pie visualizations
+- **HogQL query support** — the model can craft and execute precise HogQL queries against your data
+- **Mermaid diagrams** — funnels, paths, and feature-flag logic rendered visually
+- **Streaming reasoning** — collapsible thinking indicators for models that support reasoning tokens (Claude extended thinking, DeepSeek R1, etc.)
+- **Per-conversation persistence** — chats saved locally in IndexedDB
+- **Light/dark/system themes** — built on shadcn/ui + Tailwind v4
+- **Bring your own keys** — no backend account required. API keys stored locally in your browser
+
+---
+
+## Tech Stack
+
+- **Framework** — [Next.js 16](https://nextjs.org) (App Router) + React 19
+- **AI** — [Vercel AI SDK v6](https://ai-sdk.dev/) with `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@ai-sdk/google`
+- **MCP** — [`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol/typescript-sdk) talking to PostHog MCP over Streamable HTTP
+- **UI** — [shadcn/ui](https://ui.shadcn.com) + [AI Elements](https://www.npmjs.com/package/ai-elements) + Tailwind v4
+- **Charts** — [recharts](https://recharts.org)
+- **Markdown** — [streamdown](https://www.npmjs.com/package/streamdown) with code/math/mermaid/cjk plugins
+- **Storage** — IndexedDB for conversations, localStorage for settings
+
+---
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- **Node.js 18+**
+- A **PostHog account** with a [Personal API Key](https://app.posthog.com/settings/user-api-keys)
+- An **AI provider API key** (OpenAI, Anthropic, Google AI Studio, or OpenRouter)
+
+### Installation
 
 ```bash
+git clone https://github.com/tryrelia/Relia-Analytics.git
+cd Relia-Analytics
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Configuration
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+All configuration happens in-app via the **Settings** dialog (gear icon in the sidebar). No `.env` file required.
 
-## Learn More
+1. **AI Provider** — pick OpenAI / Anthropic / Google / OpenRouter and paste your API key
+2. **Model** — choose from the predefined list or enter a custom model ID
+3. **PostHog MCP API Key** — your PostHog personal API key
+4. **PostHog Project ID** _(optional)_ — restricts queries to a single project
 
-To learn more about Next.js, take a look at the following resources:
+Settings are persisted in `localStorage` only — they never leave your browser.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Where to Get API Keys
 
-## Deploy on Vercel
+| Provider | Link |
+|----------|------|
+| OpenAI | <https://platform.openai.com/api-keys> |
+| Anthropic | <https://console.anthropic.com/settings/keys> |
+| Google AI Studio | <https://aistudio.google.com/app/apikey> |
+| OpenRouter | <https://openrouter.ai/settings/keys> |
+| PostHog | <https://app.posthog.com/settings/user-api-keys> |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+> **OpenRouter note:** Some free models (like `owl-alpha`) require provider logging to be enabled in your [privacy settings](https://openrouter.ai/settings/privacy).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## How It Works
+
+```
+┌──────────────┐    headers     ┌────────────────────┐    MCP/HTTP     ┌──────────────┐
+│   Browser    │ ─────────────► │  /api/chat route   │ ──────────────► │ PostHog MCP  │
+│  (useChat)   │                │  (AI SDK stream)   │ ◄────────────── │   Server     │
+└──────────────┘ ◄───────────── └────────────────────┘                 └──────────────┘
+       ▲             SSE              │
+       │                              ▼
+       │                       ┌────────────────────┐
+       │                       │   LLM Provider     │
+       │                       │ OpenAI / Anthropic │
+       │                       │  Google / OR       │
+       │                       └────────────────────┘
+       │
+   InteractiveChart, Reasoning, Mermaid, Task indicators…
+```
+
+1. The chat UI sends a message via AI SDK's `useChat`, passing API keys as request headers
+2. The Next.js route opens an MCP session against `mcp.posthog.com`, lists available tools, and exposes them to the LLM
+3. The LLM calls tools (e.g. `query-run`, `insights-get-all`) — results stream back as part of the response
+4. The response is parsed for ` ```recharts ` JSON blocks (rendered as `recharts` charts) and ` ```mermaid ` blocks (rendered as diagrams)
+5. Reasoning tokens (where supported) stream into a collapsible thinking panel
+
+---
+
+## Project Structure
+
+```
+app/
+  api/chat/route.ts    # AI SDK streaming route + MCP session wiring
+  [id]/page.tsx        # individual conversation page
+  page.tsx             # landing
+components/
+  chat-interface.tsx   # core chat UI (useChat, reasoning, tool indicators)
+  chat-chart.tsx       # recharts renderer + recharts/json block parsing
+  sidebar.tsx          # conversation list + settings dialog
+  ai-elements/         # shadcn-style AI Elements primitives
+  ui/                  # shadcn primitives
+lib/
+  posthog-mcp.ts       # MCP client + tool adapter
+  chat-context.ts      # React context for settings + conversations
+  db.ts                # IndexedDB persistence layer
+```
+
+---
+
+## Available Scripts
+
+```bash
+npm run dev      # start dev server on 0.0.0.0:3000
+npm run build    # production build
+npm run start    # serve production build
+npm run lint     # eslint
+```
+
+---
+
+## Privacy
+
+- API keys are stored **only** in `localStorage` on your device
+- Conversations are stored **only** in IndexedDB on your device
+- The Next.js API route is a stateless proxy — it does not log, persist, or forward anything beyond the LLM and MCP calls
+- If you self-host, your data flows directly between your browser → your server → the LLM provider + PostHog MCP
+
+---
+
+## Contributing
+
+PRs welcome. Please:
+
+1. Open an issue first for non-trivial changes
+2. Follow the existing code style (TypeScript strict, no comments unless the _why_ is non-obvious)
+3. Test against at least one LLM provider end-to-end
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+---
+
+## Acknowledgements
+
+- [PostHog](https://posthog.com) for the analytics platform and MCP server
+- [Vercel AI SDK](https://ai-sdk.dev/) and [AI Elements](https://www.npmjs.com/package/ai-elements)
+- [shadcn/ui](https://ui.shadcn.com) for the component foundation
+- [Model Context Protocol](https://modelcontextprotocol.io/) for the tool-calling standard

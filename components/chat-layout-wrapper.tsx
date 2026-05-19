@@ -39,7 +39,7 @@ export function ChatLayoutWrapper({ children }: ChatLayoutWrapperProps) {
     });
 
     // 2. Load settings
-    const stored = localStorage.getItem("posthog-ai-settings");
+    const stored = localStorage.getItem("relia-analytics-settings");
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
@@ -65,7 +65,7 @@ export function ChatLayoutWrapper({ children }: ChatLayoutWrapperProps) {
       aiModel: string;
     }) => {
       setSettings(newSettings);
-      localStorage.setItem("posthog-ai-settings", JSON.stringify(newSettings));
+      localStorage.setItem("relia-analytics-settings", JSON.stringify(newSettings));
     },
     []
   );

@@ -16,7 +16,7 @@ export default function WelcomePage() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
       <div className="space-y-2">
-        <h2 className="text-lg font-semibold">Welcome to posthog-ai</h2>
+        <h2 className="text-lg font-semibold">Welcome to Relia Analytics</h2>
         <p className="text-sm text-muted-foreground">
           Create a new chat or select one from the sidebar.
         </p>

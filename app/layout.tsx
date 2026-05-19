@@ -4,8 +4,8 @@ import { ChatLayoutWrapper } from "@/components/chat-layout-wrapper";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "posthog-ai",
-  description: "AI chat interface",
+  title: "Relia Analytics",
+  description: "AI chat interface for PostHog analytics",
 };
 
 export default function RootLayout({

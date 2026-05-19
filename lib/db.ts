@@ -1,6 +1,6 @@
 import type { UIMessage } from "ai";
 
-const DB_NAME = "posthog-ai-db";
+const DB_NAME = "relia-analytics-db";
 const DB_VERSION = 1;
 const STORE = "conversations";
 

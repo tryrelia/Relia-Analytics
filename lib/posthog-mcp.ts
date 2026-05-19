@@ -20,7 +20,7 @@ export async function createPostHogMCPSession(credentials: {
   const { apiKey, projectId } = credentials;
   if (!apiKey) return null;
 
-  const client = new Client({ name: "posthog-ai-chat", version: "1.0.0" });
+  const client = new Client({ name: "relia-analytics", version: "1.0.0" });
 
   const url = new URL(POSTHOG_MCP_URL);
   url.searchParams.set("features", FEATURES);

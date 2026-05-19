@@ -350,7 +350,7 @@ export function Sidebar({ conversations, onDelete }: SidebarProps) {
     <aside className="flex w-64 shrink-0 flex-col border-r bg-muted/30">
       <div className="flex items-center justify-between border-b px-4 py-3">
         <span className="font-semibold tracking-tight cursor-pointer" onClick={() => router.push("/")}>
-          posthog-ai
+          Relia Analytics
         </span>
         <div className="flex items-center gap-0.5">
           <SettingsDialog />
