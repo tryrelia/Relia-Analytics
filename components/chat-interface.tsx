@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import type { ChatStatus, UIMessage } from "ai";
+import { nanoid } from "nanoid";
 import { CheckIcon, CopyIcon, XIcon, SettingsIcon } from "lucide-react";
 import {
   Conversation,
@@ -159,7 +160,7 @@ export function ChatInterface({
     onSaveRef.current = onSave;
   }, [onSave]);
 
-  const { messages, sendMessage, status, stop, error } = useChat({
+  const { messages, sendMessage, status, stop, error, setMessages } = useChat({
     id: conversationId,
     messages: initialMessages,
     onError: (error) => {
@@ -220,6 +221,44 @@ export function ChatInterface({
     [handleSendMessage]
   );
 
+  const handleStop = useCallback(() => {
+    stop();
+
+    setMessages((prevMessages) => {
+      if (prevMessages.length === 0) return prevMessages;
+      
+      const lastMsg = prevMessages[prevMessages.length - 1];
+      if (lastMsg && lastMsg.role === "assistant") {
+        // Clean the partial output and show request cancelled
+        const updatedMsg = {
+          ...lastMsg,
+          parts: [
+            {
+              type: "text" as const,
+              text: "❌ Request cancelled.",
+            },
+          ],
+        };
+        return [...prevMessages.slice(0, -1), updatedMsg];
+      } else {
+        // If the last message was user (assistant hasn't responded yet)
+        return [
+          ...prevMessages,
+          {
+            id: nanoid(),
+            role: "assistant" as const,
+            parts: [
+              {
+                type: "text" as const,
+                text: "❌ Request cancelled.",
+              },
+            ],
+          },
+        ];
+      }
+    });
+  }, [stop, setMessages]);
+
   const isGenerating = status === "submitted" || status === "streaming";
 
   const promptInput = (
@@ -232,7 +271,7 @@ export function ChatInterface({
           <PromptInputTextarea placeholder="Message…" />
         </PromptInputBody>
         <PromptInputFooter className="justify-end">
-          <PromptInputSubmit status={status} onStop={stop} />
+          <PromptInputSubmit status={status} onStop={handleStop} />
         </PromptInputFooter>
       </PromptInput>
     </div>
