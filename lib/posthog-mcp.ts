@@ -42,6 +42,71 @@ export async function createPostHogMCPSession(credentials: {
     mcpTools.map((mcpTool) => {
       const toolKey = mcpTool.name.replaceAll("-", "_");
 
+      // Special handling for query_run - match PostHog API format
+      if (mcpTool.name === "query_run") {
+        return [
+          toolKey,
+          dynamicTool({
+            description: "Execute HogQL queries. Use structure: {\"query\": {\"kind\": \"HogQLQuery\", \"query\": \"SELECT ...\"}}",
+            inputSchema: jsonSchema({
+              type: "object" as const,
+              properties: {
+                query: {
+                  type: "object" as const,
+                  properties: {
+                    kind: { type: "string" as const },
+                    query: { type: "string" as const },
+                  },
+                  required: ["kind", "query"],
+                },
+              },
+              required: ["query"],
+            }),
+            execute: async (input: unknown) => {
+              const inp = input as Record<string, unknown>;
+              const queryObj = inp.query as Record<string, unknown>;
+              
+              console.log(`[MCP] Calling query_run:`, JSON.stringify(inp));
+
+              // Ensure correct structure for PostHog API - remove extra fields
+              const cleanInput = {
+                query: {
+                  kind: queryObj.kind || "HogQLQuery",
+                  query: String(queryObj.query || ""),
+                },
+              };
+
+              const result = await client.callTool({
+                name: mcpTool.name,
+                arguments: cleanInput,
+              });
+
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const content = result.content as any[];
+
+              if (result.isError) {
+                const errText = content
+                  .filter((c) => c.type === "text")
+                  .map((c) => String(c.text))
+                  .join("\n");
+                console.error(`[MCP] query_run error:`, errText);
+                throw new Error(errText || "Query failed");
+              }
+
+              const textParts = content.filter((c) => c.type === "text");
+              const fullText = textParts.map((p) => String(p.text)).join("");
+              
+              try {
+                return JSON.parse(fullText);
+              } catch {
+                return fullText;
+              }
+            },
+          }),
+        ];
+      }
+
+      // Default handling for other tools
       return [
         toolKey,
         dynamicTool({
@@ -49,6 +114,8 @@ export async function createPostHogMCPSession(credentials: {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           inputSchema: jsonSchema((mcpTool.inputSchema ?? { type: "object", properties: {} }) as any),
           execute: async (input: unknown) => {
+            console.log(`[MCP] Calling ${mcpTool.name}:`, JSON.stringify(input));
+
             const result = await client.callTool({
               name: mcpTool.name,
               arguments: input as Record<string, unknown>,
@@ -62,18 +129,18 @@ export async function createPostHogMCPSession(credentials: {
                 .filter((c) => c.type === "text")
                 .map((c) => String(c.text))
                 .join("\n");
+              console.error(`[MCP] ${mcpTool.name} error:`, errText);
               throw new Error(errText || "PostHog tool call failed");
             }
 
             const textParts = content.filter((c) => c.type === "text");
-            if (textParts.length === 1) {
-              try {
-                return JSON.parse(String(textParts[0].text));
-              } catch {
-                return String(textParts[0].text);
-              }
+            const fullText = textParts.map((p) => String(p.text)).join("");
+            
+            try {
+              return JSON.parse(fullText);
+            } catch {
+              return fullText;
             }
-            return content;
           },
         }),
       ];

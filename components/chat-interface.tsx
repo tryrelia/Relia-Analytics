@@ -59,7 +59,7 @@ function CopyButton({ text }: { text: string }) {
       await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {}
+    } catch { }
   }, [text]);
 
   return (
@@ -83,32 +83,54 @@ const SUGGESTIONS = [
 ] as const;
 
 
-function TaskIndicator({ toolName, state }: { toolName: string; state: string }) {
+function ToolIndicator({
+  toolName,
+  state,
+  errorText,
+}: {
+  toolName: string;
+  state: string;
+  errorText?: string;
+}) {
   const isDone = state === "output-available";
   const isError = state === "output-error";
   const isRunning = !isDone && !isError;
 
+  // If successful, show minimal notification
+  if (isDone && !isError) {
+    return (
+      <div className="my-2 flex items-center gap-2 rounded-md border border-green-500/20 bg-green-500/5 px-3 py-2 text-sm">
+        <CheckIcon className="size-4 text-green-600" />
+        <span className="text-green-700">{toolName.replaceAll("_", " ")} completed</span>
+      </div>
+    );
+  }
+
+  // If error, show error message
+  if (isError && errorText) {
+    const cleanError = errorText
+      .split("\n")[0]
+      .replace(/^MCP error.*?: /, "")
+      .replace(/Input validation error: /, "")
+      .trim();
+
+    return (
+      <div className="my-2 flex items-start gap-2 rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm">
+        <XIcon className="size-4 mt-0.5 shrink-0 text-red-600" />
+        <div>
+          <div className="font-medium text-red-700">{toolName.replaceAll("_", " ")} failed</div>
+          <div className="text-xs text-red-600 mt-1">{cleanError}</div>
+        </div>
+      </div>
+    );
+  }
+
+  // If running, show spinner
   return (
-    <Task className="my-2" defaultOpen={isRunning}>
-      <TaskTrigger title={toolName.replaceAll("_", " ")} />
-      <TaskContent>
-        <TaskItem>
-          {isRunning ? (
-            <div className="flex items-center gap-2">
-              <Spinner className="size-3" />
-              <span>Executing tool...</span>
-            </div>
-          ) : isError ? (
-            <span className="text-red-500 font-medium">Data not found.</span>
-          ) : (
-            <span className="text-emerald-500 font-medium flex items-center gap-1.5">
-              <CheckIcon className="size-3.5" />
-              Tool execution completed.
-            </span>
-          )}
-        </TaskItem>
-      </TaskContent>
-    </Task>
+    <div className="my-2 flex items-center gap-2 rounded-md border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-sm">
+      <Spinner className="size-3" />
+      <span className="text-blue-700">{toolName.replaceAll("_", " ")} executing...</span>
+    </div>
   );
 }
 
@@ -140,7 +162,7 @@ export function ChatInterface({
       if (error.name === "AbortError" || error.message?.includes("aborted")) {
         return;
       }
-      
+
       if (error.message?.toLowerCase().includes("support tool use") || error.message?.includes("experiment_results_get")) {
         setMessages((prev) => [
           ...prev,
@@ -157,7 +179,7 @@ export function ChatInterface({
         ]);
         return;
       }
-      
+
       console.error(error);
     },
   });
@@ -367,10 +389,11 @@ export function ChatInterface({
                           : pt.slice(5).replaceAll("_", "-");
 
                         return (
-                          <TaskIndicator
+                          <ToolIndicator
                             key={key}
                             toolName={toolName}
                             state={tp.state ?? "input-available"}
+                            errorText={tp.errorText}
                           />
                         );
                       }
