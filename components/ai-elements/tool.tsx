@@ -35,13 +35,13 @@ export type ToolHeaderProps = {
   title?: string;
   className?: string;
 } & (
-  | { type: ToolUIPart["type"]; state: ToolUIPart["state"]; toolName?: never }
-  | {
+    | { type: ToolUIPart["type"]; state: ToolUIPart["state"]; toolName?: never }
+    | {
       type: DynamicToolUIPart["type"];
       state: DynamicToolUIPart["state"];
       toolName: string;
     }
-);
+  );
 
 const statusLabels: Record<ToolPart["state"], string> = {
   "approval-requested": "Awaiting Approval",
@@ -131,6 +131,33 @@ export type ToolOutputProps = ComponentProps<"div"> & {
   errorText: ToolPart["errorText"];
 };
 
+// Extract user-friendly message from MCP error
+const extractErrorMessage = (errorText: string): string => {
+  // Try to extract "Invalid arguments for tool..." message
+  const match = errorText.match(/Invalid arguments for tool.*?: \[(.*?)\]/);
+  if (match) {
+    try {
+      const details = JSON.parse(`[${match[1]}]`);
+      const msgs = details
+        .map((d: any) => d.message || d.code)
+        .filter(Boolean);
+      if (msgs.length > 0) {
+        return msgs.join(" • ");
+      }
+    } catch {
+      // Fall back to original
+    }
+  }
+
+  // Extract main error message
+  const mainMatch = errorText.match(/MCP error.*?: (.*?)(?:\n|$)/);
+  if (mainMatch) {
+    return mainMatch[1];
+  }
+
+  return errorText;
+};
+
 export const ToolOutput = ({
   className,
   output,
@@ -160,12 +187,16 @@ export const ToolOutput = ({
         className={cn(
           "overflow-x-auto rounded-md text-xs [&_table]:w-full",
           errorText
-            ? "bg-destructive/10 text-destructive"
+            ? "bg-destructive/10 text-destructive p-3 rounded-md"
             : "bg-muted/50 text-foreground"
         )}
       >
-        {errorText && <div>{errorText}</div>}
-        {Output}
+        {errorText && (
+          <div className="font-medium text-sm">
+            {extractErrorMessage(errorText)}
+          </div>
+        )}
+        {!errorText && Output}
       </div>
     </div>
   );
