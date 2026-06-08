@@ -10,28 +10,22 @@ export const maxDuration = 60;
 const POSTHOG_SYSTEM_PROMPT = `You are a PostHog analytics expert. Your job is to fetch data and present results.
 
 ## Available Tools (use in this priority order):
-1. **query_generate_hogql_from_question** — For complex questions, call this FIRST to let PostHog generate the correct HogQL SQL. Then pass the generated SQL to query_run.
-2. **query_run** — Execute HogQL SQL queries. For simple/familiar queries you can call this directly.
-3. **event_definitions_list** — List available event names.
-4. **properties_list** — List available properties.
-5. **read_data_schema** — Get table schemas and column info.
+1. **read_data_schema** — Explore available events, properties, and values. Use this to confirm what data actually exists before querying. Do NOT assume events/properties exist.
+2. **execute_sql** — Execute HogQL (PostHog's ClickHouse-based SQL). This is your primary tool for answering data questions.
 
 CRITICAL: READ THESE EXACT INSTRUCTIONS BEFORE USING ANY TOOL:
 
-## query_run Tool - EXACT Format Required
-The query_run tool REQUIRES this exact JSON structure:
+## execute_sql Tool - EXACT Format Required
+The execute_sql tool takes a FLAT object with a single "query" string:
 {
-  "query": {
-    "kind": "HogQLQuery",
-    "query": "YOUR SQL QUERY HERE"
-  }
+  "query": "YOUR SQL QUERY HERE"
 }
 
-IMPORTANT: The "query" and "kind" MUST be INSIDE the top-level "query" wrapper. This is required.
+That's it — no nested "kind", no wrapper objects. Just the raw HogQL string in "query".
 
-ONLY use "HogQLQuery" as the kind. The query_run tool does NOT accept PathsQuery, FunnelsQuery, TrendsQuery, LifecycleQuery, or any other kind — they will be rejected. Express ALL analytics questions (including paths, funnels, trends) as raw HogQL SQL.
+Express ALL analytics questions (including paths, funnels, trends) as raw HogQL SQL.
 
-NEVER send an empty query string. Every query_run call MUST contain a complete SELECT statement.
+NEVER send an empty query string. Every execute_sql call MUST contain a complete SELECT statement.
 
 ## HogQL / ClickHouse SQL Syntax Rules:
 
@@ -69,53 +63,28 @@ NEVER send an empty query string. Every query_run call MUST contain a complete S
 
 ## Example Queries for Common Questions:
 
-### "How many visitors in last 10 hours?"
+Each example below shows ONLY the SQL string. Pass it as the "query" field when calling execute_sql. Canonical full call:
 {
-  "query": {
-    "kind": "HogQLQuery",
-    "query": "SELECT uniqExact(person_id) as total_visitors FROM events WHERE timestamp >= now() - INTERVAL 10 HOUR"
-  }
+  "query": "SELECT uniqExact(person_id) as visitors FROM events WHERE timestamp >= yesterday() AND timestamp < today()"
 }
+
+### "How many visitors in last 10 hours?"
+SELECT uniqExact(person_id) as total_visitors FROM events WHERE timestamp >= now() - INTERVAL 10 HOUR
 
 ### "Count of yesterday's visitors?"
-{
-  "query": {
-    "kind": "HogQLQuery",
-    "query": "SELECT uniqExact(person_id) as visitors FROM events WHERE timestamp >= yesterday() AND timestamp < today()"
-  }
-}
+SELECT uniqExact(person_id) as visitors FROM events WHERE timestamp >= yesterday() AND timestamp < today()
 
 ### "Visitors by country (last 7 days)?"
-{
-  "query": {
-    "kind": "HogQLQuery",
-    "query": "SELECT properties['$geoip_country_name'] as country, uniqExact(person_id) as visitors FROM events WHERE timestamp >= now() - INTERVAL 7 DAY GROUP BY country ORDER BY visitors DESC LIMIT 20"
-  }
-}
+SELECT properties['$geoip_country_name'] as country, uniqExact(person_id) as visitors FROM events WHERE timestamp >= now() - INTERVAL 7 DAY GROUP BY country ORDER BY visitors DESC LIMIT 20
 
 ### "Top pages visited (last 24 hours)?"
-{
-  "query": {
-    "kind": "HogQLQuery",
-    "query": "SELECT properties['$current_url'] as page, count() as visits FROM events WHERE event = '$pageview' AND timestamp >= now() - INTERVAL 24 HOUR GROUP BY page ORDER BY visits DESC LIMIT 20"
-  }
-}
+SELECT properties['$current_url'] as page, count() as visits FROM events WHERE event = '$pageview' AND timestamp >= now() - INTERVAL 24 HOUR GROUP BY page ORDER BY visits DESC LIMIT 20
 
 ### "User flow / path analysis (what do users do after visiting the homepage)?"
-{
-  "query": {
-    "kind": "HogQLQuery",
-    "query": "SELECT e1.event as step_1, e2.event as step_2, count() as transitions FROM events e1 JOIN events e2 ON e1.person_id = e2.person_id AND e2.timestamp > e1.timestamp AND e2.timestamp <= e1.timestamp + INTERVAL 30 MINUTE WHERE e1.timestamp >= now() - INTERVAL 7 DAY AND e1.event = '$pageview' GROUP BY step_1, step_2 ORDER BY transitions DESC LIMIT 20"
-  }
-}
+SELECT e1.event as step_1, e2.event as step_2, count() as transitions FROM events e1 JOIN events e2 ON e1.person_id = e2.person_id AND e2.timestamp > e1.timestamp AND e2.timestamp <= e1.timestamp + INTERVAL 30 MINUTE WHERE e1.timestamp >= now() - INTERVAL 7 DAY AND e1.event = '$pageview' GROUP BY step_1, step_2 ORDER BY transitions DESC LIMIT 20
 
 ### "Funnel: how many users went from pageview → signup → login (last 7 days)?"
-{
-  "query": {
-    "kind": "HogQLQuery",
-    "query": "SELECT countIf(step >= 1) as pageview, countIf(step >= 2) as signup, countIf(step >= 3) as login FROM (SELECT person_id, maxIf(1, event = '$pageview') + maxIf(2, event = 'signup') + maxIf(3, event = 'user_login') as step FROM events WHERE timestamp >= now() - INTERVAL 7 DAY AND event IN ('$pageview', 'signup', 'user_login') GROUP BY person_id)"
-  }
-}
+SELECT countIf(step >= 1) as pageview, countIf(step >= 2) as signup, countIf(step >= 3) as login FROM (SELECT person_id, maxIf(1, event = '$pageview') + maxIf(2, event = 'signup') + maxIf(3, event = 'user_login') as step FROM events WHERE timestamp >= now() - INTERVAL 7 DAY AND event IN ('$pageview', 'signup', 'user_login') GROUP BY person_id)
 
 ## Response Format:
 - Show results as clean Markdown tables.
@@ -161,7 +130,10 @@ export async function POST(req: Request) {
   const session = await createPostHogMCPSession({
     apiKey: phApiKey,
     projectId: phProjectId,
-  }).catch(() => null);
+  }).catch((err) => {
+    console.error("[MCP] Session creation failed:", err?.message ?? err);
+    return null;
+  });
 
   const hasTools = session != null && Object.keys(session.tools).length > 0;
 

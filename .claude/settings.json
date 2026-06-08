@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat \"$HOME\\\\.claude\\\\mcp.json\" 2>/dev/null || echo \"NOT FOUND\")",
+      "Read(//c/Users/PC/.claude/**)",
+      "WebFetch(domain:posthog.com)"
+    ]
+  }
+}

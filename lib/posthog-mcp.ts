@@ -7,14 +7,15 @@ const POSTHOG_MCP_URL = "https://mcp.posthog.com/mcp";
 
 /**
  * Request only these tools from the MCP server via the `tools` query param.
- * This avoids fetching all 74 tools (with huge schemas) and keeps token usage low.
+ * The deployed server (mcp.posthog.com) exposes ~214 tools; fetching all of them
+ * (with huge schemas) blows the token budget. These are the exact deployed names
+ * (verified against the live server — the repo's tool-definitions.json is stale,
+ * e.g. there is NO `query-run`; the SQL tool is `execute-sql`).
  * See: https://posthog.com/docs/model-context-protocol#filter-by-tool-name
  */
+const SQL_TOOL = "execute-sql";
 const REQUESTED_TOOLS = [
-  "query-run",
-  "query-generate-hogql-from-question",
-  "event-definitions-list",
-  "properties-list",
+  SQL_TOOL,
   "read-data-schema",
   "annotations-list",
 ];
@@ -53,110 +54,28 @@ export async function createPostHogMCPSession(credentials: {
 
   const { tools: mcpTools } = await client.listTools();
 
+  const returnedNames = mcpTools.map((t) => t.name);
   console.log(
-    `[MCP] Server returned ${mcpTools.length} tools (requested ${REQUESTED_TOOLS.length})`
+    `[MCP] Server returned ${mcpTools.length}/${REQUESTED_TOOLS.length} tools:`,
+    returnedNames.join(", ") || "(none)"
   );
+
+  // execute-sql is the core query tool. If absent, the key likely lacks the
+  // `query:read` scope — warn loudly so it's diagnosable.
+  if (!returnedNames.includes(SQL_TOOL)) {
+    console.warn(
+      `[MCP] '${SQL_TOOL}' NOT exposed by server. The PostHog personal API key is ` +
+        "likely missing the 'query:read' scope. Recreate the key with Query (read) scope enabled."
+    );
+  }
 
   const tools: ToolSet = Object.fromEntries(
     mcpTools
       .map((mcpTool) => {
         const toolKey = mcpTool.name.replaceAll("-", "_");
 
-        // Special handling for query-run — HogQLQuery only (MCP server rejects all other kinds)
-        if (mcpTool.name === "query-run") {
-          return [
-            toolKey,
-            dynamicTool({
-              description:
-                'Execute a HogQL SQL query against PostHog. The "kind" MUST always be "HogQLQuery". Express paths, funnels, and trends as raw SQL.',
-              inputSchema: jsonSchema({
-                type: "object" as const,
-                properties: {
-                  query: {
-                    type: "object" as const,
-                    properties: {
-                      kind: {
-                        type: "string" as const,
-                        enum: ["HogQLQuery"],
-                        description:
-                          'Must always be "HogQLQuery". No other value is accepted.',
-                      },
-                      query: {
-                        type: "string" as const,
-                        description:
-                          "The HogQL SQL query string. Must be a complete SELECT statement.",
-                      },
-                    },
-                    required: ["kind", "query"],
-                    additionalProperties: false,
-                  },
-                },
-                required: ["query"],
-                additionalProperties: false,
-              }),
-              execute: async (input: unknown) => {
-                const inp = input as Record<string, unknown>;
-                const queryObj = inp.query as Record<string, unknown>;
-                const sqlString = String(queryObj?.query || "").trim();
-
-                // Reject empty/invalid queries
-                if (!sqlString || sqlString.length < 6) {
-                  throw new Error(
-                    "Empty or invalid SQL query. You MUST provide a full HogQL SELECT statement, e.g. SELECT count() FROM events WHERE timestamp >= now() - INTERVAL 1 DAY"
-                  );
-                }
-
-                // Force kind to HogQLQuery — MCP server rejects everything else
-                const cleanInput = {
-                  query: {
-                    kind: "HogQLQuery" as const,
-                    query: sqlString,
-                  },
-                };
-
-                console.log(
-                  `[MCP] Calling query-run:`,
-                  JSON.stringify(cleanInput)
-                );
-
-                const result = await client.callTool({
-                  name: mcpTool.name,
-                  arguments: cleanInput,
-                });
-
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const content = result.content as any[];
-
-                if (result.isError) {
-                  const errText = content
-                    .filter((c) => c.type === "text")
-                    .map((c) => String(c.text))
-                    .join("\n");
-                  console.error(`[MCP] query-run error:`, errText);
-                  throw new Error(errText || "Query failed");
-                }
-
-                const textParts = content.filter((c) => c.type === "text");
-                let fullText = textParts.map((p) => String(p.text)).join("");
-
-                // Truncate large results to prevent token overflow on next LLM turn
-                if (fullText.length > MAX_RESULT_CHARS) {
-                  fullText =
-                    fullText.slice(0, MAX_RESULT_CHARS) +
-                    "\n...[TRUNCATED — result too large, add stricter filters or LIMIT]";
-                }
-
-                try {
-                  return JSON.parse(fullText);
-                } catch {
-                  return fullText;
-                }
-              },
-            }),
-          ];
-        }
-
-        // Default handling for other whitelisted tools (with trimmed descriptions)
+        // All whitelisted tools (incl. execute-sql) use their real server-provided
+        // input schema. execute-sql takes a flat { query: "SELECT ..." } string.
         const desc = (mcpTool.description ?? mcpTool.name).slice(0, 300);
 
         return [

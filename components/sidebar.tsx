@@ -313,13 +313,16 @@ function SettingsDialog() {
               </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="projectId">PostHog Project ID (Optional)</Label>
+              <Label htmlFor="projectId">PostHog Project ID</Label>
               <Input
                 id="projectId"
                 placeholder="12345"
                 value={projectId}
-                onChange={(e) => setProjectId(e.target.value)}
+                onChange={(e) => setProjectId(e.target.value.replace(/\D/g, ""))}
               />
+              <p className="text-[10px] text-muted-foreground leading-normal">
+                Numeric ID only — e.g. <span className="font-semibold">12345</span>. Find it in PostHog under <span className="font-semibold">Project Settings → General</span>. Not the <span className="font-mono">phc_...</span> API key.
+              </p>
             </div>
           </div>
         </div>
